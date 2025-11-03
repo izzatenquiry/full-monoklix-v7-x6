@@ -70,7 +70,12 @@ const AiVideoSuiteView: React.FC<AiVideoSuiteViewProps> = ({ preset, clearPreset
     const renderActiveTabContent = () => {
         switch (activeTab) {
             case 'generation':
-                return <VideoGenerationView preset={preset} clearPreset={clearPreset} />;
+                return <VideoGenerationView 
+                            preset={preset} 
+                            clearPreset={clearPreset} 
+                            currentUser={currentUser}
+                            onUserUpdate={onUserUpdate}
+                        />;
             case 'storyboard':
                 return <ProductReviewView 
                             onReEdit={onReEdit} 
@@ -86,7 +91,12 @@ const AiVideoSuiteView: React.FC<AiVideoSuiteViewProps> = ({ preset, clearPreset
                 // FIX: Passed language prop to VoiceStudioView to provide the required 'language' prop.
                 return <VoiceStudioView language={language} />;
             default:
-                return <VideoGenerationView preset={preset} clearPreset={clearPreset} />;
+                return <VideoGenerationView 
+                            preset={preset} 
+                            clearPreset={clearPreset} 
+                            currentUser={currentUser}
+                            onUserUpdate={onUserUpdate}
+                        />;
         }
     };
 

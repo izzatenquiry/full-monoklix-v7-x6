@@ -50,7 +50,7 @@ export const uploadImageForImagen = async (base64Image: string, mimeType: string
   };
 
   const url = `${PROXY_BASE_URL}/upload`;
-  const data = await fetchWithTokenRotation(url, requestBody, 'IMAGEN UPLOAD');
+  const { data } = await fetchWithTokenRotation(url, requestBody, 'IMAGEN UPLOAD');
 
   const mediaId = 
     data.result?.data?.json?.result?.uploadMediaGenerationId || 
@@ -116,7 +116,7 @@ export const generateImageWithImagen = async (request: ImageGenerationRequest) =
     }
   } else {
     console.log(`🎨 [Imagen Service] Sending T2I request to API client.`);
-    const result = await fetchWithTokenRotation(url, requestBody, 'IMAGEN GENERATE');
+    const { data: result } = await fetchWithTokenRotation(url, requestBody, 'IMAGEN GENERATE');
     console.log(`🎨 [Imagen Service] Received T2I result with ${result.imagePanels?.length || 0} panels.`);
     return result;
   }
@@ -145,7 +145,7 @@ export const runImageRecipe = async (request: {
     };
 
     const url = `${PROXY_BASE_URL}/run-recipe`;
-    const result = await fetchWithTokenRotation(url, requestBody, 'IMAGEN RECIPE');
+    const { data: result } = await fetchWithTokenRotation(url, requestBody, 'IMAGEN RECIPE');
     console.log(`✏️ [Imagen Service] Received recipe result with ${result.imagePanels?.length || 0} panels.`);
     return result;
 };

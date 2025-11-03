@@ -42,18 +42,21 @@ const getTokens = (): { token: string; createdAt: string }[] => {
  * @param endpoint - The API endpoint to call (e.g., '/api/veo/generate-t2v').
  * @param requestBody - The JSON body for the POST request.
  * @param logContext - A string describing the operation for logging purposes (e.g., 'VEO T2V').
- * @returns The JSON response from the API.
+ * @param specificToken - If provided, bypasses rotation and uses only this token.
+ * @returns An object containing the JSON response `data` and the `successfulToken` used.
  */
 export const fetchWithTokenRotation = async (
   endpoint: string,
   requestBody: any,
-  logContext: string
-) => {
+  logContext: string,
+  specificToken?: string
+): Promise<{ data: any; successfulToken: string }> => {
   console.log(`[API Client] Starting process for: ${logContext}`);
-  let tokens = getTokens();
 
-  // If tokens are missing from session, try to re-fetch them automatically.
-  if (tokens.length === 0) {
+  let tokens = specificToken ? [{ token: specificToken, createdAt: 'N/A' }] : getTokens();
+
+  // If tokens are missing from session (and not using a specific one), try to re-fetch them automatically.
+  if (tokens.length === 0 && !specificToken) {
       console.log(`[API Client] No tokens in session for ${logContext}. Attempting re-fetch.`);
       addLogEntry({
           model: logContext,
@@ -128,7 +131,7 @@ export const fetchWithTokenRotation = async (
       }
       
       console.log(`✅ [API Client] Success for ${logContext} with token #${i + 1}`);
-      return data;
+      return { data, successfulToken: currentAuthToken };
 
     } catch (error) {
       lastError = error;

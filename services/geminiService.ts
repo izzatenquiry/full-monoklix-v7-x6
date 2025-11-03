@@ -114,8 +114,7 @@ export const generateVideo = async (
     aspectRatio: string,
     resolution: string,
     negativePrompt: string,
-    image: { imageBytes: string, mimeType: string } | undefined,
-    historyPrompt?: string,
+    image: { imageBytes: string, mimeType: string } | undefined
 ): Promise<{ videoUrl: string; thumbnailUrl: string | null; videoBlobPromise: Promise<File>; }> => {
     try {
         let processedImage = image;
@@ -141,19 +140,36 @@ export const generateVideo = async (
         const aspectRatioForVeo3 = veo3AspectRatio(aspectRatio);
 
         let imageMediaId: string | undefined = undefined;
+        let successfulToken: string | null = null;
+        
         if (processedImage) {
             addLogEntry({ model, prompt: "Uploading reference image...", output: "In progress...", tokenCount: 0, status: "Success" });
-            imageMediaId = await uploadImageForVeo3(processedImage.imageBytes, processedImage.mimeType, aspectRatioForVeo3);
+            const uploadResult = await uploadImageForVeo3(processedImage.imageBytes, processedImage.mimeType, aspectRatioForVeo3);
+            imageMediaId = uploadResult.mediaId;
+            successfulToken = uploadResult.successfulToken;
         }
 
         const useStandardModel = !model.includes('fast');
         
         addLogEntry({ model, prompt, output: "Starting video generation via proxy...", tokenCount: 0, status: "Success" });
-        const initialOperations = await generateVideoWithVeo3({
+        // FIX: The `specificToken` property is not valid on the request object.
+        // It should be passed as `authToken` inside the `config` object to be
+        // consistent with the `VideoGenerationRequest` type.
+        const { operations: initialOperations, successfulToken: generationToken } = await generateVideoWithVeo3({
             prompt,
             imageMediaId,
-            config: { aspectRatio: aspectRatioForVeo3, useStandardModel },
+            config: {
+                aspectRatio: aspectRatioForVeo3,
+                useStandardModel,
+                authToken: successfulToken || undefined, // Pass the same token used for upload
+            },
         });
+
+        const videoCreationToken = generationToken;
+
+        if (!videoCreationToken) {
+            throw new Error("Could not determine which auth token was successful for video creation.");
+        }
 
         if (!initialOperations || initialOperations.length === 0) {
             throw new Error("Video generation failed to start. The API did not return any operations.");
@@ -168,7 +184,7 @@ export const generateVideo = async (
             await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
             addLogEntry({ model, prompt, output: `Checking video status...`, tokenCount: 0, status: "Success" });
 
-            const statusResponse = await checkVideoStatus(finalOperations);
+            const statusResponse = await checkVideoStatus(finalOperations, videoCreationToken);
             if (!statusResponse?.operations || statusResponse.operations.length === 0) {
                 console.warn('⚠️ Empty status response, retrying...');
                 continue;
@@ -647,7 +663,7 @@ export const runApiHealthCheck = async (keys: { textKey?: string }): Promise<Hea
             const currentToken = proxyTokens[i].token;
             console.log(`   - Testing with token #${i + 1}...`);
             try {
-                const initialOperations = await generateVideoWithVeo3({
+                const { operations: initialOperations } = await generateVideoWithVeo3({
                     prompt: 'test',
                     config: {
                         authToken: currentToken,

@@ -21,7 +21,9 @@ const getProxyBaseUrl = (): string => {
 };
 const PROXY_BASE_URL = getProxyBaseUrl();
 
-export const generateVideoWithVeo3 = async (request: VideoGenerationRequest) => {
+export const generateVideoWithVeo3 = async (
+    request: VideoGenerationRequest
+): Promise<{ operations: any[]; successfulToken: string }> => {
   console.log('🎬 [VEO Service] Preparing generateVideoWithVeo3 request...');
   const { prompt, imageMediaId, config } = request;
   const isImageToVideo = !!imageMediaId;
@@ -88,7 +90,7 @@ export const generateVideoWithVeo3 = async (request: VideoGenerationRequest) => 
             const errorMessage = data.error?.message || data.message || `API call failed (${response.status})`;
             throw new Error(errorMessage);
         }
-        return data.operations || [];
+        return { operations: data.operations || [], successfulToken: config.authToken };
     } catch (error: any) {
         if (error.name === 'AbortError') {
             throw new Error('Request timed out after 15 seconds.');
@@ -99,18 +101,19 @@ export const generateVideoWithVeo3 = async (request: VideoGenerationRequest) => 
     }
   } else {
     // Regular production call, use token rotation
-    const data = await fetchWithTokenRotation(url, requestBody, isImageToVideo ? 'VEO I2V' : 'VEO T2V');
+    const { data, successfulToken } = await fetchWithTokenRotation(url, requestBody, isImageToVideo ? 'VEO I2V' : 'VEO T2V');
     console.log('🎬 [VEO Service] Received operations from API client:', data.operations?.length || 0);
-    return data.operations || [];
+    return { operations: data.operations || [], successfulToken };
   }
 };
 
-export const checkVideoStatus = async (operations: any[]) => {
+export const checkVideoStatus = async (operations: any[], token: string) => {
   console.log(`🔍 [VEO Service] Checking status for ${operations.length} operations...`);
   const url = `${PROXY_BASE_URL}/status`;
   const payload = { operations };
 
-  const data = await fetchWithTokenRotation(url, payload, 'VEO STATUS');
+  // Use a direct fetch with the provided token, bypassing rotation.
+  const { data } = await fetchWithTokenRotation(url, payload, 'VEO STATUS', token);
   
   if (data.operations && data.operations.length > 0) {
     data.operations.forEach((op: any, idx: number) => {
@@ -131,7 +134,7 @@ export const uploadImageForVeo3 = async (
   base64Image: string,
   mimeType: string,
   aspectRatio: 'landscape' | 'portrait'
-): Promise<string> => {
+): Promise<{ mediaId: string; successfulToken: string }> => {
   console.log(`📤 [VEO Service] Preparing to upload image for VEO. MimeType: ${mimeType}`);
   const imageAspectRatioEnum = aspectRatio === 'landscape' 
     ? 'IMAGE_ASPECT_RATIO_LANDSCAPE' 
@@ -151,7 +154,7 @@ export const uploadImageForVeo3 = async (
   };
 
   const url = `${PROXY_BASE_URL}/upload`;
-  const data = await fetchWithTokenRotation(url, requestBody, 'VEO UPLOAD');
+  const { data, successfulToken } = await fetchWithTokenRotation(url, requestBody, 'VEO UPLOAD');
   const mediaId = data.mediaGenerationId?.mediaGenerationId || data.mediaId;
   
   if (!mediaId) {
@@ -160,5 +163,5 @@ export const uploadImageForVeo3 = async (
   }
   
   console.log(`📤 [VEO Service] Image upload successful. Media ID: ${mediaId}`);
-  return mediaId;
+  return { mediaId, successfulToken };
 };

@@ -577,7 +577,7 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
             videoAspectRatio, 
             videoResolution, 
             negativePrompt,
-            image,
+            image
         );
 
         if (videoUrl) {
@@ -592,27 +592,39 @@ const ProductReviewView: React.FC<ProductReviewViewProps> = ({ onReEdit, onCreat
                 newThumbs[index] = thumbnailUrl;
                 return newThumbs;
             });
-        }
 
-        // In the background, wait for the blob to finish downloading, then save to history and update usage
-        const videoFile = await videoBlobPromise;
-        const historyPrompt = `Scene ${index + 1} Video`;
-        await addHistoryItem({ type: 'Video', prompt: historyPrompt, result: videoFile });
-        const updateResult = await incrementVideoUsage(currentUser.id);
-        if (updateResult.success && updateResult.user) {
-            onUserUpdate(updateResult.user);
-        }
+            // Set success immediately for UI responsiveness
+            setVideoGenerationStatus(prev => {
+                const newStatus = [...prev];
+                newStatus[index] = 'success';
+                return newStatus;
+            });
+            setVideoFilenames(prev => {
+                const newNames = [...prev];
+                newNames[index] = `monoklix-scene-${index+1}.mp4`;
+                return newNames;
+            });
 
-        setVideoFilenames(prev => {
-            const newNames = [...prev];
-            newNames[index] = `monoklix-scene-${index+1}.mp4`;
-            return newNames;
-        });
-        setVideoGenerationStatus(prev => {
-            const newStatus = [...prev];
-            newStatus[index] = 'success';
-            return newStatus;
-        });
+            // Handle history saving and usage increment in the background
+            videoBlobPromise.then(async (videoFile) => {
+                const historyPrompt = `Scene ${index + 1} Video`;
+                await addHistoryItem({ type: 'Video', prompt: historyPrompt, result: videoFile });
+                const updateResult = await incrementVideoUsage(currentUser.id);
+                if (updateResult.success && updateResult.user) {
+                    onUserUpdate(updateResult.user);
+                }
+            }).catch(err => {
+                console.error("Background video processing failed:", err);
+                addLogEntry({
+                    model: videoModel,
+                    prompt: `Background save for Scene ${index + 1}`,
+                    output: `Failed to save video to history/gallery. Error: ${err.message}`,
+                    tokenCount: 0,
+                    status: 'Error',
+                    error: err.message
+                });
+            });
+        }
 
     } catch (e) {
         const userFriendlyMessage = handleApiError(e);

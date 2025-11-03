@@ -343,7 +343,7 @@ const ApiIntegrationsPanel: React.FC<ApiIntegrationsPanelProps> = ({ currentUser
     return (
         <div className="bg-white dark:bg-neutral-900 p-6 rounded-lg shadow-sm space-y-8">
             <div>
-                <h2 className="text-xl font-semibold mb-2">Google Gemini API Key</h2>
+                <h2 className="text-xl font-semibold mb-2">MONOklix API Key</h2>
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700 flex items-start gap-3">
                     <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                     <p className="text-sm text-blue-800 dark:text-blue-200">

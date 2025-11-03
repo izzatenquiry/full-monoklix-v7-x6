@@ -76,7 +76,7 @@ const ApiKeyStatus: React.FC<ApiKeyStatusProps> = ({ activeApiKey, veoTokenRefre
 
                     <div className="space-y-3 text-sm">
                         <div className="flex justify-between items-center p-2 bg-neutral-100 dark:bg-neutral-800 rounded-md">
-                            <span className="font-semibold text-neutral-600 dark:text-neutral-300">Shared Gemini Key:</span>
+                            <span className="font-semibold text-neutral-600 dark:text-neutral-300">MONOklix API Key:</span>
                             {activeApiKey ? (
                                 <span className="font-mono text-green-600 dark:text-green-400">...{activeApiKey.slice(-4)}</span>
                             ) : (

@@ -9,6 +9,8 @@ import { MODELS } from '../../services/aiConfig';
 import { addLogEntry } from '../../services/aiLogService';
 import { triggerUserWebhook } from '../../services/webhookService';
 import { handleApiError } from '../../services/errorHandler';
+import { type User } from '../../types';
+import { incrementVideoUsage } from '../../services/userService';
 
 
 interface ImageData {
@@ -24,6 +26,8 @@ interface VideoGenPreset {
 interface VideoGenerationViewProps {
   preset: VideoGenPreset | null;
   clearPreset: () => void;
+  currentUser: User;
+  onUserUpdate: (user: User) => void;
 }
 
 const styleOptions = ["Random", "Realism", "Photorealistic", "Cinematic", "Anime", "Vintage", "3D Animation", "Watercolor", "Claymation"];
@@ -52,7 +56,7 @@ const moodOptions = [
 
 const SESSION_KEY = 'videoGenerationState';
 
-const VideoGenerationView: React.FC<VideoGenerationViewProps> = ({ preset, clearPreset }) => {
+const VideoGenerationView: React.FC<VideoGenerationViewProps> = ({ preset, clearPreset, currentUser, onUserUpdate }) => {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [dialogue, setDialogue] = useState('');
@@ -301,13 +305,28 @@ const VideoGenerationView: React.FC<VideoGenerationViewProps> = ({ preset, clear
       try {
           const image = referenceImage ? { imageBytes: referenceImage.base64, mimeType: referenceImage.mimeType } : undefined;
           
-          const { videoUrl: streamUrl, thumbnailUrl: newThumbnailUrl } = await generateVideo(fullPrompt, model, aspectRatio, resolution, dynamicNegativePrompt, image);
+          const { videoUrl: streamUrl, thumbnailUrl: newThumbnailUrl, videoBlobPromise } = await generateVideo(fullPrompt, model, aspectRatio, resolution, dynamicNegativePrompt, image);
 
           if (streamUrl) {
               console.log('✅ Video stream URL received:', streamUrl);
               setVideoUrl(streamUrl);
               setVideoFilename(`monoklix-video-${Date.now()}.mp4`);
               setThumbnailUrl(newThumbnailUrl);
+              
+              videoBlobPromise.then(async (videoFile) => {
+                  await addHistoryItem({
+                      type: 'Video',
+                      prompt: `Video Generation: ${prompt.trim().substring(0, 100)}...`,
+                      result: videoFile,
+                  });
+                  const updateResult = await incrementVideoUsage(currentUser.id);
+                  if (updateResult.success && updateResult.user) {
+                      onUserUpdate(updateResult.user);
+                  }
+              }).catch(err => {
+                  console.error("Failed to save video to history:", err);
+                  setError("Video generated but failed to save to gallery. Please download it now.");
+              });
           }
       } catch (e) {
           const userFriendlyMessage = handleApiError(e);
@@ -315,7 +334,7 @@ const VideoGenerationView: React.FC<VideoGenerationViewProps> = ({ preset, clear
       } finally {
           setIsLoading(false);
       }
-  }, [prompt, style, lighting, camera, composition, lensType, filmSim, effect, dialogue, dialogueAudio, isVeo3, referenceImage, model, aspectRatio, resolution, negativePrompt, voiceoverLanguage, voiceoverMood]);
+  }, [prompt, style, lighting, camera, composition, lensType, filmSim, effect, dialogue, dialogueAudio, isVeo3, referenceImage, model, aspectRatio, resolution, negativePrompt, voiceoverLanguage, voiceoverMood, currentUser.id, onUserUpdate]);
 
   const handleDownloadVideo = async () => {
     if (!videoUrl || !videoFilename) return;
